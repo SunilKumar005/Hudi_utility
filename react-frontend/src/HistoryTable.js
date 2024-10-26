@@ -1,56 +1,206 @@
+// HistoryTable.js
 import React, { useEffect, useState } from 'react';
-import { Table, TableHead, TableRow, TableCell, TableBody, Button } from '@mui/material';
+import { Table, TableHead, TableRow, TableCell, TableBody, Button, TextField, Box, Typography, Card, CardContent, CardHeader, Chip, Divider,TablePagination  } from '@mui/material';
 import axios from 'axios';
+import IconButton from '@mui/material/IconButton';
+import { MagnifyingGlass as MagnifyingGlassIcon } from '@phosphor-icons/react/dist/ssr/MagnifyingGlass';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { useNavigate } from 'react-router-dom';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import dayjs from 'dayjs';
 
-function HistoryTable({ setFormData, setLog, handleOpenLog }) {
+const statusMap = {
+    success: { label: 'Success', color: 'success' },
+    failed: { label: 'Failed', color: 'error' },
+    pending: { label: 'Pending', color: 'warning' },
+};
+
+function HistoryTable() {
     const [history, setHistory] = useState([]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [startDate, setStartDate] = useState(null);
+    const [endDate, setEndDate] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        async function fetchHistory() {
-            const response = await axios.get('http://127.0.0.1:8000/bootstrap_history/');
-            setHistory(response.data);
-        }
         fetchHistory();
     }, []);
 
-    const handleRerun = (transaction) => {
-        setFormData(JSON.parse(transaction.transaction_data));  // Load data back to form
+    const fetchHistory = async (startDate = '', endDate = '', transactionId = '') => {
+        setLoading(true);
+        try {
+            const params = { 
+                start_date: startDate ? dayjs(startDate).format('YYYY-MM-DD') : '', 
+                end_date: endDate ? dayjs(endDate).format('YYYY-MM-DD') : '', 
+                transaction_id: transactionId 
+            };
+            const response = await axios.get('http://127.0.0.1:8000/bootstrap_history/', { params });
+            setHistory(response.data);
+        } catch (error) {
+            console.error("Error fetching history:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleShowLog = (log) => {
-        setLog(log);  // Set the log data to be displayed
-        handleOpenLog();  // Open the log modal
+    const handleSearch = () => {
+        fetchHistory(startDate, endDate, searchTerm);
     };
+
+    const handleRerun = (transaction) => {
+        const formData = JSON.parse(transaction.transaction_data);
+        navigate('/bootstrap', { state: { formData } });
+    };
+
+    const handleChangePage = (event, newPage) => {
+        setPage(newPage);
+    };
+
+    const handleChangeRowsPerPage = (event) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0); // Reset to first page when rows per page changes
+    };
+
     return (
-        <Table>
-            <TableHead>
-                <TableRow>
-                    <TableCell>Transaction ID</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Start Time</TableCell>
-                    <TableCell>End Time</TableCell>
-                    <TableCell>Action</TableCell>
-		    <TableCell>View Logs</TableCell>
-                </TableRow>
-            </TableHead>
-            <TableBody>
-                {history.map((transaction) => (
-                    <TableRow key={transaction.transaction_id}>
-                        <TableCell>{transaction.transaction_id}</TableCell>
-                        <TableCell>{transaction.status}</TableCell>
-                        <TableCell>{new Date(transaction.start_time).toLocaleString()}</TableCell>
-                        <TableCell>{transaction.end_time ? new Date(transaction.end_time).toLocaleString() : 'In Progress'}</TableCell>
-                        <TableCell>
-                            <Button onClick={() => handleRerun(transaction)}>Rerun</Button>
-                        </TableCell>
-			<TableCell>
-			    <Button onClick={() => handleShowLog(transaction.log)}>Show Log</Button>
-			</TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+        <Box sx={{ padding: 2 }}>
+            <Card>
+                <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                        <Box sx={{ flexGrow: 1, mr: 2 }}>
+                            <TextField 
+                                label="Search by Transaction ID" 
+                                value={searchTerm} 
+                                onChange={(e) => setSearchTerm(e.target.value)} 
+                                InputProps={{
+                                    startAdornment: (
+                                        <IconButton>
+                                            <MagnifyingGlassIcon />
+                                        </IconButton>
+                                    ),
+                                }} 
+				sx={{ 
+                                    borderRadius: '12px', // This applies to the TextField container
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: '12px', // This applies to the input itself
+                                    },
+                                }}
+				fullWidth
+                            />
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                <DatePicker 
+                                    label="Start Date" 
+                                    value={startDate} 
+                                    onChange={(date) => setStartDate(date)} 
+				    slotProps={{
+				      textField: {
+					size: 'medium',
+					InputProps: {
+					  sx: { borderRadius: '12px', backgroundColor: 'white' , width: '13vw'}, // Apply the styles here
+					},
+				      },
+				    }}
+                                    renderInput={(params) => <TextField {...params} />} 
+                                />
+                                <DatePicker 
+                                    label="End Date" 
+                                    value={endDate} 
+                                    onChange={(date) => setEndDate(date)} 
+				    slotProps={{
+				      textField: {
+					size: 'medium',
+					InputProps: {
+					  sx: { borderRadius: '12px', backgroundColor: 'white', width: '13vw' }, // Apply the styles here
+					},
+				      },
+				    }}
+                                    renderInput={(params) => <TextField {...params} sx={{ 
+                                                borderRadius: '25%', 
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: '25%', 
+                                                },
+                                            }} />} 
+                                />
+                                <Button variant="contained" onClick={handleSearch} sx={{ 
+					height: '40px', // Set desired height
+					width: '100px', // Set desired width
+					padding: '8px 16px', // Set desired padding
+					borderRadius: '12px', // Optionally, keep the border-radius
+					marginTop: '1vh',
+				    }}>Fetch</Button>
+                            </LocalizationProvider>
+                        </Box>
+                    </Box>
+                    {loading ? (
+                        <Typography>Loading...</Typography>
+                    ) : (
+			<>
+                        <Table>
+                            <TableHead>
+                                <TableRow sx={{ backgroundColor: 'var(--mui-palette-background-level1)' }}>
+                                    <TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>Transaction ID</TableCell>
+                                    <TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>Job ID</TableCell>
+                                    <TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>Status</TableCell>
+                                    <TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>Start Time</TableCell>
+                                    <TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>End Time</TableCell>
+                                    <TableCell>
+                                        Action
+                                    </TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody sx={{ '& .MuiTableRow:last-child td': { '--TableCell-borderWidth': 0 } }}>
+				{history.length === 0 ? (
+				    <TableRow>
+					<TableCell colSpan={6} sx={{ textAlign: 'center', color: 'var(--mui-palette-text-secondary)', padding: '16px' }}>
+					    No Transactions Found!
+					</TableCell>
+				    </TableRow>
+				) : (
+				    history.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((transaction) => {
+					console.log(transaction.status);
+					const transactionStatus = transaction.status ? transaction.status.trim() : '';
+					const { label = 'Unknown', color = 'default' } = statusMap[transactionStatus.toLowerCase()] || {};
+					console.log(`Status: ${transactionStatus}, Label: ${label}, Color: ${color}`);
+
+					return (
+					    <TableRow key={transaction.transaction_id}>
+						<TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>{transaction.transaction_id}</TableCell>
+						<TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>{transaction.job_id}</TableCell>
+						<TableCell sx={{ borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>
+						    <Chip color={color} label={label} size="small" />
+						</TableCell>
+						<TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>{new Date(transaction.start_time).toLocaleString()}</TableCell>
+						<TableCell sx={{ color: 'var(--mui-palette-text-secondary)', borderBottom: 'var(--TableCell-borderWidth, 1px) solid var(--mui-palette-TableCell-border)' }}>{transaction.end_time ? new Date(transaction.end_time).toLocaleString() : 'In Progress'}</TableCell>
+						<TableCell>
+						    <Button variant="outlined" onClick={() => handleRerun(transaction)}>Rerun</Button>
+						</TableCell>
+					    </TableRow>
+					);
+				    })
+				)}
+                            </TableBody>
+                        </Table>
+			<TablePagination
+                                rowsPerPageOptions={[5, 10, 25]}
+                                component="div"
+                                count={history.length}
+                                rowsPerPage={rowsPerPage}
+                                page={page}
+                                onPageChange={handleChangePage}
+                                onRowsPerPageChange={handleChangeRowsPerPage}
+                            />
+			</>
+                    )}
+                </CardContent>
+            </Card>
+        </Box>
     );
 }
 
 export default HistoryTable;
+

@@ -1,0 +1,4 @@
+[console_scripts]
+pydoop = pydoop.app.main:main
+pydoop3 = pydoop.app.main:main
+

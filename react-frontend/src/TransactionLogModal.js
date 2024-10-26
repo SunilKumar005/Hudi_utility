@@ -15,11 +15,12 @@ function TransactionLogModal({ open, onClose, log }) {
                     <CloseIcon />
                 </IconButton>
             </DialogTitle>
-            <DialogContent dividers style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                <Typography variant="body1" style={{ whiteSpace: 'pre-wrap' }}>
-                    {log || 'No log available for this transaction.'}
-                </Typography>
-            </DialogContent>
+            <DialogContent dividers style={{ maxHeight: '400px', overflowY: 'auto', backgroundColor: '#f9f9f9', padding: '16px' }}>
+    <Typography variant="body1" style={{ whiteSpace: 'pre-wrap', color: '#333' }}>
+        {log || 'No log available for this transaction.'}
+    </Typography>
+</DialogContent>
+
         </Dialog>
     );
 }

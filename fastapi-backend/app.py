@@ -1,6 +1,7 @@
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+from typing import List
 import subprocess
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
@@ -53,7 +54,7 @@ app.add_middleware(
 class HudiBootstrapRequest(BaseModel):
     data_file_path: str
     hudi_table_name: str
-    key_field: str
+    key_field: List[str]
     precombine_field: str
     partition_field: str
     hudi_table_type: str  # COPY_ON_WRITE or MERGE_ON_READ
@@ -82,10 +83,10 @@ def bootstrap_hudi(request: HudiBootstrapRequest,db: Session = Depends(get_db)):
             "spark-submit",
             "--master", "local",  # or the appropriate cluster manager URL
             "--conf", f"spark.executor.memory={request.spark_config.get('spark.executor.memory', '2g') if request.spark_config else '2g'}",
-            "/home/labuser/Desktop/Persistant_Folder/utility/fastapi-backend/pyspark_script.py",  # The path to your PySpark script
+            "/home/labuser/Desktop/Persistant_Folder/Hudi_utility/fastapi-backend/pyspark_script.py",  # The path to your PySpark script
             f"--data-file-path={request.data_file_path}",
             f"--hudi-table-name={request.hudi_table_name}",
-            f"--key-field={request.key_field}",
+            f"--key-field={','.join(request.key_field)}",
             f"--precombine-field={request.precombine_field}",
             f"--partition-field={request.partition_field}",
             f"--hudi-table-type={request.hudi_table_type}",
@@ -105,7 +106,14 @@ def bootstrap_hudi(request: HudiBootstrapRequest,db: Session = Depends(get_db)):
         result = subprocess.run(spark_submit_command, capture_output=True, text=True)
 
         if result.returncode != 0:
-            raise Exception(result.stderr)  # Raise error if subprocess fails
+           transaction.end_time = datetime.utcnow()
+           transaction.status = "FAILED"
+           transaction.log = result.stderr
+           db.commit()
+    
+    # Send error details to frontend
+           raise HTTPException(status_code=500, detail={"message": "Error during Spark submit", "error": result.stderr})
+  # Raise error if subprocess fails
 
         transaction.end_time = datetime.utcnow()
         if result.returncode == 0:
